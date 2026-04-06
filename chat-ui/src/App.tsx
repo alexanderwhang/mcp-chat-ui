@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import { MessageList } from './components/chat/MessageList';
 import { ChatInput } from './components/input/ChatInput';
+import { ChatAccordion } from './components/input/ChatAccordion';
 import useChat from './hooks/useChat';
 import { agentClient } from './api/openaiClient';
 import type { Message, ToolCall, ChatCompletionResponse } from './api/types';
@@ -49,6 +50,7 @@ const App: React.FC = () => {
     handleError, 
     setToolExecuting,
   } = useChat();
+  const [isWaitingForFinalResponse, setIsWaitingForFinalResponse] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [mcpTools, setMcpTools] = useState<any[]>([]);
 
@@ -120,7 +122,8 @@ const App: React.FC = () => {
     setApiError(null);
 
     try {
-      setLoading(true);
+      setLoading(false);
+      setIsWaitingForFinalResponse(false);
       setToolExecuting(false);
 
       // Prepare messages for API (include tool results in history)
@@ -220,7 +223,9 @@ const App: React.FC = () => {
       // Execute tool calls
       if (toolCalls.length > 0) {
         try {
+          setToolExecuting(true);
           const toolResults = await executeToolCalls(toolCalls);
+          setToolExecuting(false);
 
           // Update the assistant message with tool results
           setMessages((prev) => 
@@ -247,6 +252,8 @@ const App: React.FC = () => {
           // Send tool results back to agent to get final response
           if (toolResults.length > 0) {
             try {
+              setIsWaitingForFinalResponse(true);
+
               // Build messages with tool results for the final LLM call
               const finalMessages: APIMessage[] = [];
               
@@ -328,10 +335,13 @@ const App: React.FC = () => {
               }
             } catch (error) {
               console.error('Failed to get final response:', error);
+            } finally {
+              setIsWaitingForFinalResponse(false);
             }
           }
         } catch (error) {
           console.error('Failed to execute tools:', error);
+          setToolExecuting(false);
           // Update tool results with error status
           setMessages((prev) => 
             prev.map((msg) => {
@@ -356,6 +366,7 @@ const App: React.FC = () => {
       handleError('Failed to get response from API');
     } finally {
       setLoading(false);
+      setIsWaitingForFinalResponse(false);
     }
   };
 
@@ -398,36 +409,37 @@ const App: React.FC = () => {
           </Alert>
         )}
 
-        {/* Chat Area */}
-        <Container
-          maxWidth={false}
-          sx={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            px: 2,
-            py: 1,
-            overflow: 'hidden',
-          }}
-        >
-          <MessageList messages={messages} isLoading={isLoading || isToolExecuting} />
-        </Container>
+         {/* Chat Area */}
+         <Container
+           maxWidth={false}
+           sx={{
+             flex: 1,
+             display: 'flex',
+             flexDirection: 'column',
+             px: 2,
+             py: 1,
+             overflow: 'hidden',
+           }}
+         >
+           <MessageList messages={messages} isLoading={isLoading || isWaitingForFinalResponse} />
+         </Container>
 
-        {/* Input Area */}
-        <Paper
-          elevation={3}
-          sx={{
-            p: 2,
-            backgroundColor: 'background.paper',
-            mt: 'auto',
-          }}
-        >
-          <ChatInput
-            onSendMessage={handleSendMessage}
-            disabled={isLoading || isToolExecuting}
-            placeholder="Type a message..."
-          />
-        </Paper>
+         {/* Input Area */}
+          <Paper
+            elevation={3}
+            sx={{
+              p: 2,
+              backgroundColor: 'background.paper',
+              mt: 'auto',
+            }}
+          >
+            <ChatAccordion mcpTools={mcpTools} />
+            <ChatInput
+              onSendMessage={handleSendMessage}
+              disabled={isLoading || isToolExecuting || isWaitingForFinalResponse}
+              placeholder="Type a message..."
+            />
+          </Paper>
       </Box>
     </ThemeProvider>
   );

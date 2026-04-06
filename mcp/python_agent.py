@@ -16,7 +16,7 @@ from typing import Optional, Any
 from fastmcp import Client
 
 # Configuration
-MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", "http://d1rs-wvaw1-mcu:8000/mcp")
+MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", "http://localhost:9000/mcp")
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://d1rs-wvaw1-mcu:8000/v1")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 LLM_DEFAULT_MODEL = os.getenv("LLM_DEFAULT_MODEL", "EXO/mlx-community/Qwen3-Coder-Next-8bit")
@@ -89,7 +89,23 @@ async def list_tools():
         client = Client(MCP_SERVER_URL)
         async with client:
             tools = await client.list_tools()
-            return {"tools": [tool.model_dump() for tool in tools]}
+            print(tools)
+            # Extract tool information in a format compatible with the UI
+            tool_list = []
+            for tool in tools:
+                tool_dict = tool.model_dump()
+                # FastMCP tools may have 'name' directly or nested
+                tool_name = tool_dict.get('name') or tool_dict.get('method') or str(tool_dict.get('function', {}))
+                # Get description from the tool's docstring if not available in model_dump
+                description = tool_dict.get('description')
+                if description is None:
+                    description = getattr(tool, '__doc__', '') or ''
+                tool_list.append({
+                    "name": tool_name or "unknown",
+                    "description": description or 'No description available.',
+                    "inputSchema": tool_dict.get('parameters', {})
+                })
+            return {"tools": tool_list}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing tools: {str(e)}")
 
