@@ -9,12 +9,13 @@ import ChatMessage from './ChatMessage';
 export interface MessageListProps {
   messages: MessageType[];
   isLoading?: boolean;
+  isToolExecuting?: boolean;
 }
 
 /**
  * Component to render a scrollable list of chat messages
  */
-export const MessageList: React.FC<MessageListProps> = ({ messages, isLoading }) => {
+export const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, isToolExecuting }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -68,12 +69,13 @@ export const MessageList: React.FC<MessageListProps> = ({ messages, isLoading })
         <ChatMessage key={message.id} message={message} />
       ))}
       
-       {isLoading && (
+        {isLoading && !isToolExecuting && (
          <Box
            sx={{
              display: 'flex',
              justifyContent: 'flex-start',
              width: '100%',
+             mt: -3,
              mb: 2,
            }}
          >
@@ -85,18 +87,15 @@ export const MessageList: React.FC<MessageListProps> = ({ messages, isLoading })
                alignItems: 'flex-start',
              }}
            >
-             <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
-               Assistant
-             </Typography>
-              <Paper variant="outlined" sx={{ p: 2 }}>
-                <Typography
-                  variant="body1"
-                  color="text.secondary"
-                  className="pulseFade"
-                >
-                  Thinking...
-                </Typography>
-              </Paper>
+               <Paper variant="outlined" sx={{ p: 2 }}>
+                 <Typography
+                   variant="body1"
+                   color="text.secondary"
+                   className="pulseFade"
+                 >
+                   Thinking...
+                 </Typography>
+               </Paper>
            </Box>
          </Box>
        )}

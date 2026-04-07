@@ -77,7 +77,7 @@ export const ToolCallBlock: React.FC<ToolCallBlockProps> = ({
       onChange={handleAccordionChange}
       sx={{
         mt: 2,
-        mb: 2,
+        mb: 1,
         borderColor: status === 'error' ? 'error.main' : undefined,
         '&:before': {
           backgroundColor: 'transparent',

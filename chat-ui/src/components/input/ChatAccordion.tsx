@@ -10,18 +10,9 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
-  SvgIcon,
-  type SvgIconProps,
 } from '@mui/material';
+import BuildIcon from '@mui/icons-material/Build';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-
-function ToolsIcon(props: SvgIconProps) {
-  return (
-    <SvgIcon {...props}>
-      <path d="M3 17h2v-7H3v7zm4 0h2v-12H7v12zm4 0h2V4h-2v13zm4 0h2v-9h-2v9zm4 0h2V8h-2v9z" />
-    </SvgIcon>
-  );
-}
 
 export interface ChatAccordionProps {
   mcpTools?: any[];
@@ -34,7 +25,7 @@ export const ChatAccordion: React.FC<ChatAccordionProps> = ({
     <Accordion defaultExpanded>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <Typography component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <ToolsIcon fontSize="small" />
+          <BuildIcon fontSize="small" />
           Available Tools
         </Typography>
       </AccordionSummary>
@@ -57,12 +48,12 @@ export const ChatAccordion: React.FC<ChatAccordionProps> = ({
                 }}
               >
                 <ListItemIcon sx={{ minWidth: 36 }}>
-                  <ToolsIcon fontSize="small" />
+                  <BuildIcon fontSize="small" />
                 </ListItemIcon>
-                <ListItemText
-                  primary={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography fontWeight="medium">{tool.name}</Typography>
+                 <ListItemText
+                   primary={
+                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                       <Typography fontWeight="medium">{typeof tool === 'object' && 'function' in tool ? tool.function.name : tool.name}</Typography>
                       {tool.tags && tool.tags.length > 0 && (
                         <Chip
                           label={tool.tags[0]}
@@ -75,7 +66,7 @@ export const ChatAccordion: React.FC<ChatAccordionProps> = ({
                       )}
                     </Box>
                   }
-                  secondary={tool.description}
+                  secondary={typeof tool === 'object' && 'function' in tool ? tool.function.description : tool.description}
                   secondaryTypographyProps={{
                     sx: {
                       fontSize: '0.8rem',

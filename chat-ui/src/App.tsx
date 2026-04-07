@@ -122,7 +122,7 @@ const App: React.FC = () => {
     setApiError(null);
 
     try {
-      setLoading(false);
+      setLoading(true);
       setIsWaitingForFinalResponse(false);
       setToolExecuting(false);
 
@@ -421,7 +421,7 @@ const App: React.FC = () => {
              overflow: 'hidden',
            }}
          >
-           <MessageList messages={messages} isLoading={isLoading || isWaitingForFinalResponse} />
+            <MessageList messages={messages} isLoading={isLoading || isWaitingForFinalResponse} isToolExecuting={isToolExecuting} />
          </Container>
 
          {/* Input Area */}
