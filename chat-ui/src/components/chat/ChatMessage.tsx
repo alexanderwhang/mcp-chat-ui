@@ -17,6 +17,13 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
   const isUser = message.role === 'user';
   const isAssistant = message.role === 'assistant';
   const isTool = message.role === 'tool';
+  
+  console.log('ChatMessage rendering:', { 
+    id: message.id, 
+    role: message.role, 
+    toolCalls: message.toolCalls?.map(tc => ({ id: tc.id, name: tc.function.name })), 
+    toolResults: message.toolResults?.map(tr => ({ toolId: tr.toolId, name: tr.name, status: tr.status }))
+  });
 
   return (
     <Box
@@ -62,15 +69,21 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
             );
           })}
 
-        {/* Message content */}
-        <Paper
-          elevation={isUser ? 2 : 0}
-          sx={{
-            p: 2,
-            backgroundColor: isUser ? 'primary.main' : isTool ? 'action.disabledBackground' : undefined,
-            color: isUser ? 'primary.contrastText' : undefined,
-          }}
-        >
+         {/* Message content */}
+         <Paper
+           elevation={isUser ? 2 : 1}
+           sx={{
+             p: 2,
+             backgroundColor: isUser 
+               ? 'primary.main' 
+               : isTool 
+                 ? 'action.disabledBackground' 
+                 : 'background.default',
+             color: isUser ? 'primary.contrastText' : undefined,
+             border: isAssistant ? '1px solid' : undefined,
+             borderColor: isAssistant ? 'divider' : undefined,
+           }}
+         >
           <Typography
             variant="body1"
             sx={{

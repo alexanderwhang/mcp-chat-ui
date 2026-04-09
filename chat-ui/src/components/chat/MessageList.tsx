@@ -65,9 +65,10 @@ export const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, i
         gap: 1,
       }}
     >
-      {messages.map((message) => (
-        <ChatMessage key={message.id} message={message} />
-      ))}
+      {messages.map((message) => {
+        console.log('Rendering message:', { id: message.id, role: message.role, toolCalls: message.toolCalls?.map(tc => ({ id: tc.id, name: tc.function.name })), toolResults: message.toolResults?.map(tr => ({ toolId: tr.toolId, name: tr.name })) });
+        return <ChatMessage key={message.id} message={message} />;
+      })}
       
         {isLoading && !isToolExecuting && (
          <Box

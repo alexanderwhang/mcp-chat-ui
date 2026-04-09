@@ -99,6 +99,7 @@ const App: React.FC = () => {
    * Execute tool calls via the batch endpoint
    */
   const executeToolCalls = async (toolCalls: ToolCall[]): Promise<any[]> => {
+    console.log('executeToolCalls called:', { toolCallsCount: toolCalls.length, toolCalls: toolCalls.map(tc => ({ id: tc.id, name: tc.function.name })) });
     const response = await fetch('http://localhost:8001/tools/call-batch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -110,6 +111,7 @@ const App: React.FC = () => {
     }
 
     const data = await response.json();
+    console.log('executeToolCalls response:', { resultsCount: data.results?.length, results: data.results });
     return data.results || [];
   };
 
@@ -188,6 +190,12 @@ const App: React.FC = () => {
 
       const data = await response.json();
       const agentResponse = data as ChatCompletionResponse & { tool_calls?: ToolCall[]; tool_results?: any[] };
+      console.log('LLM Response:', { 
+        rawResponse: data,
+        toolCallsCount: agentResponse.tool_calls?.length,
+        toolCalls: agentResponse.tool_calls?.map(tc => ({ id: tc.id, name: tc.function.name })),
+        content: agentResponse.choices?.[0]?.message?.content
+      });
 
       // Extract tool calls from response (tool_results will be empty initially)
       const toolCalls = agentResponse.tool_calls || [];
@@ -218,7 +226,17 @@ const App: React.FC = () => {
          })) : undefined,
         timestamp: Date.now(),
       };
-      setMessages((prev) => [...prev, assistantMessage]);
+      console.log('Creating assistant message:', {
+        assistantMessageId,
+        toolCallsCount: toolCalls.length,
+        toolCalls: toolCalls.map(tc => ({ id: tc.id, name: tc.function.name })),
+        assistantMessage
+      });
+      setMessages((prev) => {
+        const newMessages = [...prev, assistantMessage];
+        console.log('Messages after adding assistant:', newMessages);
+        return newMessages;
+      });
 
       // Execute tool calls
       if (toolCalls.length > 0) {
@@ -231,19 +249,40 @@ const App: React.FC = () => {
           setMessages((prev) => 
             prev.map((msg) => {
               if (msg.id === assistantMessageId && msg.toolResults) {
-                return {
+                console.log('Updating tool results:', { 
+                  toolCallsCount: msg.toolCalls?.length, 
+                  toolResultsCount: toolResults.length, 
+                  toolResults 
+                });
+                
+                const updatedToolResults = toolResults.map((tr: any) => {
+                  // Find the matching tool call by ID, not index
+                  const toolCall = msg.toolCalls?.find(tc => tc.id === tr.tool_call_id);
+                  console.log('Tool result mapping:', { 
+                    tr_tool_call_id: tr.tool_call_id, 
+                    toolCall_id: toolCall?.id, 
+                    toolCall_name: toolCall?.function.name 
+                  });
+                  const status: 'executing' | 'success' | 'error' = tr.isError ? 'error' : 'success';
+                  return {
+                    toolId: tr.tool_call_id,
+                    name: toolCall?.function.name || 'unknown',
+                    input: toolCall?.function.arguments as Record<string, unknown> || {},
+                    output: Array.isArray(tr.content) ? tr.content[0]?.text || '' : '',
+                    status,
+                  };
+                });
+                console.log('Updated toolResults:', updatedToolResults);
+                const updatedMsg = {
                   ...msg,
-                  toolResults: toolResults.map((tr: any, idx: number) => {
-                    const toolCall = msg.toolCalls?.[idx];
-                    return {
-                      toolId: tr.tool_call_id,
-                      name: toolCall?.function.name || 'unknown',
-                      input: toolCall?.function.arguments as Record<string, unknown> || {},
-                      output: Array.isArray(tr.content) ? tr.content[0]?.text || '' : '',
-                      status: tr.isError ? 'error' : 'success',
-                    };
-                  }),
+                  toolResults: updatedToolResults,
                 };
+                console.log('Updated message:', { 
+                  id: updatedMsg.id, 
+                  toolCallsCount: updatedMsg.toolCalls?.length, 
+                  toolResultsCount: updatedMsg.toolResults?.length 
+                });
+                return updatedMsg;
               }
               return msg;
             })

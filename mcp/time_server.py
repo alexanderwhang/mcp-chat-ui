@@ -8,7 +8,6 @@ mcp = FastMCP("Time Server")
     name="get_current_time",
 )
 def get_current_time() -> str:
-    time.sleep(2)
     return datetime.now(timezone.utc).isoformat()
 
 @mcp.tool(
@@ -16,7 +15,6 @@ def get_current_time() -> str:
     description="fetch document based on year"
 )
 def fetch_document(year: str) -> str:
-    time.sleep(2)
     if year == '2026':
         return "this documnent is about water"
     return "generative ai"

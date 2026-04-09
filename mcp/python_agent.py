@@ -95,7 +95,7 @@ async def list_tools():
             for tool in tools:
                 tool_dict = tool.model_dump()
                 # FastMCP tools may have 'name' directly or nested
-                tool_name = tool_dict.get('name') or tool_dict.get('method') or str(tool_dict.get('function', {}))
+                tool_name = tool_dict.get('name') or tool_dict.get('method') or (tool_dict.get('function') or {}).get('name') or "unknown"
                 # Get description from the tool's docstring if not available in model_dump
                 description = tool_dict.get('description')
                 if description is None:
@@ -120,6 +120,10 @@ async def chat(request: ChatRequest):
     3. Sends tool results back to the LLM for final response
     """
     model = request.model or LLM_DEFAULT_MODEL
+    
+    # print(f"=== Chat Request ===")
+    # print(f"Tools received: {len(request.tools or [])}")
+    # print(f"Tool names: {[t.get('name') for t in request.tools['function'] or []]}")
 
     async with httpx.AsyncClient() as client:
         headers = {"Content-Type": "application/json"}
@@ -154,6 +158,11 @@ async def chat(request: ChatRequest):
         choice = result.get("choices", [])[0] if result.get("choices") else {}
         message = choice.get("message", {})
         tool_calls = message.get("tool_calls", [])
+        
+        print(f"LLM Response:")
+        print(f"  Tool calls count: {len(tool_calls)}")
+        print(f"  Tool call IDs: {[tc.get('id') for tc in tool_calls]}")
+        print(f"  Tool call names: {[tc.get('function', {}).get('name') for tc in tool_calls]}")
 
         if not tool_calls:
             # No tool calls - return regular response
