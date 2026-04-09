@@ -76,7 +76,6 @@ export const MessageList: React.FC<MessageListProps> = ({ messages, isLoading, i
              display: 'flex',
              justifyContent: 'flex-start',
              width: '100%',
-             mt: -3,
              mb: 2,
            }}
          >

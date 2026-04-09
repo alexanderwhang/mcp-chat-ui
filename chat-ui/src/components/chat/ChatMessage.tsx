@@ -70,30 +70,32 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
           })}
 
          {/* Message content */}
-         <Paper
-           elevation={isUser ? 2 : 1}
-           sx={{
-             p: 2,
-             backgroundColor: isUser 
-               ? 'primary.main' 
-               : isTool 
-                 ? 'action.disabledBackground' 
-                 : 'background.default',
-             color: isUser ? 'primary.contrastText' : undefined,
-             border: isAssistant ? '1px solid' : undefined,
-             borderColor: isAssistant ? 'divider' : undefined,
-           }}
-         >
-          <Typography
-            variant="body1"
-            sx={{
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-            }}
-          >
-            {message.content}
-          </Typography>
-        </Paper>
+         {message.content && (
+           <Paper
+             elevation={isUser ? 2 : 1}
+             sx={{
+               p: 2,
+               backgroundColor: isUser 
+                 ? 'primary.main' 
+                 : isTool 
+                   ? 'action.disabledBackground' 
+                   : 'background.default',
+               color: isUser ? 'primary.contrastText' : undefined,
+               border: isAssistant ? '1px solid' : undefined,
+               borderColor: isAssistant ? 'divider' : undefined,
+             }}
+           >
+            <Typography
+              variant="body1"
+              sx={{
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+              }}
+            >
+              {message.content}
+            </Typography>
+          </Paper>
+         )}
       </Box>
     </Box>
   );
