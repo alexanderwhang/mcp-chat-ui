@@ -1,4 +1,24 @@
 import React, { useState, useEffect } from 'react';
+
+// Logger utility for consistent logging
+const logger = {
+  log: (message: string, ...data: any[]) => {
+    console.log(`[LOG] ${message}`, ...data);
+  },
+  info: (message: string, ...data: any[]) => {
+    console.info(`[INFO] ${message}`, ...data);
+  },
+  warn: (message: string, ...data: any[]) => {
+    console.warn(`[WARN] ${message}`, ...data);
+  },
+  error: (message: string, ...data: any[]) => {
+    console.error(`[ERROR] ${message}`, ...data);
+  },
+  table: (message: string, data: any) => {
+    console.table({ [message]: data });
+  }
+};
+
 import {
   Box,
   Container,
@@ -99,7 +119,11 @@ const App: React.FC = () => {
    * Execute tool calls via the batch endpoint
    */
   const executeToolCalls = async (toolCalls: ToolCall[]): Promise<any[]> => {
-    console.log('executeToolCalls called:', { toolCallsCount: toolCalls.length, toolCalls: toolCalls.map(tc => ({ id: tc.id, name: tc.function.name })) });
+    logger.log('EXECUTE TOOL CALLS - Starting batch execution', {
+      toolCallsCount: toolCalls.length,
+      toolCalls: toolCalls.map(tc => ({ id: tc.id, name: tc.function.name, args: tc.function.arguments }))
+    });
+    
     const response = await fetch('http://localhost:8001/tools/call-batch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -107,11 +131,19 @@ const App: React.FC = () => {
     });
 
     if (!response.ok) {
+      logger.error('EXECUTE TOOL CALLS - Failed to execute tools', { status: response.status, statusText: response.statusText });
       throw new Error('Failed to execute tools');
     }
 
     const data = await response.json();
-    console.log('executeToolCalls response:', { resultsCount: data.results?.length, results: data.results });
+    logger.log('EXECUTE TOOL CALLS - Batch execution complete', {
+      resultsCount: data.results?.length,
+      results: data.results?.map((r: any) => ({
+        tool_call_id: r.tool_call_id,
+        isError: r.isError,
+        contentPreview: Array.isArray(r.content) ? r.content[0]?.text?.substring(0, 50) + '...' : r.content
+      }))
+    });
     return data.results || [];
   };
 
@@ -190,15 +222,20 @@ const App: React.FC = () => {
 
       const data = await response.json();
       const agentResponse = data as ChatCompletionResponse & { tool_calls?: ToolCall[]; tool_results?: any[] };
-      console.log('LLM Response:', { 
+      logger.log('LLM RESPONSE - Received from Python agent', {
         rawResponse: data,
         toolCallsCount: agentResponse.tool_calls?.length,
-        toolCalls: agentResponse.tool_calls?.map(tc => ({ id: tc.id, name: tc.function.name })),
+        toolCalls: agentResponse.tool_calls?.map(tc => ({ id: tc.id, name: tc.function.name, args: tc.function.arguments })),
         content: agentResponse.choices?.[0]?.message?.content
       });
 
       // Extract tool calls from response (tool_results will be empty initially)
       const toolCalls = agentResponse.tool_calls || [];
+      
+      logger.log('TOOL CALLS - Extracted from LLM response', {
+        toolCallsCount: toolCalls.length,
+        toolCalls: toolCalls.map(tc => ({ id: tc.id, name: tc.function.name, args: tc.function.arguments }))
+      });
       
       // Build assistant message content
       const content = agentResponse.choices?.[0]?.message?.content || '';
@@ -226,39 +263,44 @@ const App: React.FC = () => {
          })) : undefined,
         timestamp: Date.now(),
       };
-      console.log('Creating assistant message:', {
+      logger.log('ASSISTANT MESSAGE - Created with tool calls', {
         assistantMessageId,
         toolCallsCount: toolCalls.length,
-        toolCalls: toolCalls.map(tc => ({ id: tc.id, name: tc.function.name })),
-        assistantMessage
+        contentLength: content.length,
+        toolCalls: toolCalls.map(tc => ({ id: tc.id, name: tc.function.name }))
       });
       setMessages((prev) => {
         const newMessages = [...prev, assistantMessage];
-        console.log('Messages after adding assistant:', newMessages);
+        logger.log('MESSAGES - After adding assistant message', {
+          totalMessages: newMessages.length,
+          assistantMessageId,
+          toolCallsCount: toolCalls.length
+        });
         return newMessages;
       });
 
       // Execute tool calls
       if (toolCalls.length > 0) {
+        logger.log('TOOL EXECUTION - Starting tool execution sequence');
         try {
           setToolExecuting(true);
           const toolResults = await executeToolCalls(toolCalls);
           setToolExecuting(false);
+          logger.log('TOOL EXECUTION - Tool execution complete', { resultsCount: toolResults.length });
 
           // Update the assistant message with tool results
           setMessages((prev) => 
             prev.map((msg) => {
               if (msg.id === assistantMessageId && msg.toolResults) {
-                console.log('Updating tool results:', { 
+                logger.log('TOOL RESULTS - Updating assistant message with tool results', { 
                   toolCallsCount: msg.toolCalls?.length, 
-                  toolResultsCount: toolResults.length, 
-                  toolResults 
+                  toolResultsCount: toolResults.length 
                 });
                 
                 const updatedToolResults = toolResults.map((tr: any) => {
                   // Find the matching tool call by ID, not index
                   const toolCall = msg.toolCalls?.find(tc => tc.id === tr.tool_call_id);
-                  console.log('Tool result mapping:', { 
+                  logger.log('TOOL RESULTS - Mapping tool result to tool call', { 
                     tr_tool_call_id: tr.tool_call_id, 
                     toolCall_id: toolCall?.id, 
                     toolCall_name: toolCall?.function.name 
@@ -272,12 +314,12 @@ const App: React.FC = () => {
                     status,
                   };
                 });
-                console.log('Updated toolResults:', updatedToolResults);
+                logger.log('TOOL RESULTS - Updated tool results array', updatedToolResults);
                 const updatedMsg = {
                   ...msg,
                   toolResults: updatedToolResults,
                 };
-                console.log('Updated message:', { 
+                logger.log('TOOL RESULTS - Assistant message updated', { 
                   id: updatedMsg.id, 
                   toolCallsCount: updatedMsg.toolCalls?.length, 
                   toolResultsCount: updatedMsg.toolResults?.length 
@@ -290,6 +332,7 @@ const App: React.FC = () => {
 
           // Send tool results back to agent to get final response
           if (toolResults.length > 0) {
+            logger.log('FINAL RESPONSE - Building final messages with tool results');
             try {
               setIsWaitingForFinalResponse(true);
 
@@ -342,6 +385,11 @@ const App: React.FC = () => {
                 });
               });
 
+              logger.log('FINAL RESPONSE - Sending final messages to Python agent', {
+                finalMessagesCount: finalMessages.length,
+                toolResultsCount: toolResults.length
+              });
+
               // Call the agent to get final response with tool results
               const finalResponse = await fetch('http://localhost:8001/chat', {
                 method: 'POST',
@@ -359,10 +407,20 @@ const App: React.FC = () => {
                 const finalData = await finalResponse.json();
                 const finalContent = finalData.choices?.[0]?.message?.content || '';
 
+                logger.log('FINAL RESPONSE - Received from Python agent', {
+                  finalContentLength: finalContent.length,
+                  finalContent: finalContent.substring(0, 100) + (finalContent.length > 100 ? '...' : '')
+                });
+
                 // Update the assistant message with final content
                 setMessages((prev) => 
                   prev.map((msg) => {
                     if (msg.id === assistantMessageId) {
+                      logger.log('FINAL RESPONSE - Updating assistant message content', {
+                        messageId: msg.id,
+                        oldContentLength: msg.content?.length,
+                        newContentLength: finalContent.length
+                      });
                       return {
                         ...msg,
                         content: finalContent,
@@ -373,7 +431,7 @@ const App: React.FC = () => {
                 );
               }
             } catch (error) {
-              console.error('Failed to get final response:', error);
+              logger.error('FINAL RESPONSE - Failed to get final response:', error);
             } finally {
               setIsWaitingForFinalResponse(false);
             }

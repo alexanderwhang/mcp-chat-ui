@@ -7,10 +7,19 @@ import json
 import os
 import asyncio
 import httpx
+import logging
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, Any
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s] [%(levelname)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 # Import FastMCP client
 from fastmcp import Client
@@ -20,6 +29,7 @@ MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", "http://localhost:9000/mcp")
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://d1rs-wvaw1-mcu:8000/v1")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 LLM_DEFAULT_MODEL = os.getenv("LLM_DEFAULT_MODEL", "EXO/mlx-community/Qwen3-Coder-Next-8bit")
+# LLM_DEFAULT_MODEL = os.getenv("LLM_DEFAULT_MODEL", "EXO/mlx-community/gpt-oss-120b-MXFP4-Q8")
 
 # Create FastAPI app
 app = FastAPI(title="MCP Python Agent", version="1.0.0")
@@ -89,7 +99,6 @@ async def list_tools():
         client = Client(MCP_SERVER_URL)
         async with client:
             tools = await client.list_tools()
-            print(tools)
             # Extract tool information in a format compatible with the UI
             tool_list = []
             for tool in tools:
@@ -121,9 +130,14 @@ async def chat(request: ChatRequest):
     """
     model = request.model or LLM_DEFAULT_MODEL
     
-    # print(f"=== Chat Request ===")
-    # print(f"Tools received: {len(request.tools or [])}")
-    # print(f"Tool names: {[t.get('name') for t in request.tools['function'] or []]}")
+    logger.info(f"=== CHAT REQUEST ===")
+    logger.info(f"Model: {model}")
+    logger.info(f"Messages count: {len(request.messages)}")
+    logger.info(f"Return tool calls immediately: {request.return_tool_calls_immediately}")
+    if request.tools:
+        logger.info(f"Tools count: {len(request.tools)}")
+        logger.info(f"tool req: {request.tools}")
+        logger.info(f"Tool names: {[t.get('name') for t in request.tools]}")
 
     async with httpx.AsyncClient() as client:
         headers = {"Content-Type": "application/json"}
@@ -159,10 +173,11 @@ async def chat(request: ChatRequest):
         message = choice.get("message", {})
         tool_calls = message.get("tool_calls", [])
         
-        print(f"LLM Response:")
-        print(f"  Tool calls count: {len(tool_calls)}")
-        print(f"  Tool call IDs: {[tc.get('id') for tc in tool_calls]}")
-        print(f"  Tool call names: {[tc.get('function', {}).get('name') for tc in tool_calls]}")
+        logger.info(f"=== LLM RESPONSE ===")
+        logger.info(f"Tool calls count: {len(tool_calls)}")
+        logger.info(f"Tool call IDs: {[tc.get('id') for tc in tool_calls]}")
+        logger.info(f"Tool call names: {[tc.get('function', {}).get('name') for tc in tool_calls]}")
+        logger.info(f"Tool call arguments: {[tc.get('function', {}).get('arguments') for tc in tool_calls]}")
 
         if not tool_calls:
             # No tool calls - return regular response
@@ -202,6 +217,8 @@ async def chat(request: ChatRequest):
 
         # Execute tool calls via FastMCP
         tool_results = []
+        logger.info(f"=== TOOL EXECUTION STARTED ===")
+        logger.info(f"Number of tool calls to execute: {len(tool_calls)}")
         mcp_client = Client(MCP_SERVER_URL)
         async with mcp_client:
             for tool_call in tool_calls:
@@ -210,10 +227,21 @@ async def chat(request: ChatRequest):
                 tool_args = json.loads(tool_args_str) if isinstance(tool_args_str, str) else tool_args_str
                 tool_id = tool_call.get("id", "")
 
+                logger.info(f"EXECUTING TOOL - Starting tool execution", {
+                    "tool_id": tool_id,
+                    "tool_name": tool_name,
+                    "tool_args": tool_args
+                })
+
                 try:
                     # Execute tool via FastMCP
                     tool_result = await mcp_client.call_tool(tool_name, tool_args)
-                    # print(tool_result)
+                
+                    logger.info(f"EXECUTING TOOL - Tool completed successfully", {
+                        "tool_id": tool_id,
+                        "tool_name": tool_name,
+                        "result_type": type(tool_result).__name__
+                    })
                 
                     # Convert tool result to format expected by LLM
                     content = []
@@ -236,6 +264,11 @@ async def chat(request: ChatRequest):
                         "isError": False,
                     })
                 except Exception as e:
+                    logger.error(f"EXECUTING TOOL - Tool execution failed", {
+                        "tool_id": tool_id,
+                        "tool_name": tool_name,
+                        "error": str(e)
+                    })
                     tool_results.append({
                         "tool_call_id": tool_id,
                         "name": tool_name,
@@ -243,6 +276,12 @@ async def chat(request: ChatRequest):
                         "content": [{"type": "text", "text": f"Error: {str(e)}"}],
                         "isError": True,
                     })
+
+        logger.info(f"=== TOOL EXECUTION COMPLETE ===")
+        logger.info(f"Tool results count: {len(tool_results)}")
+        logger.info(f"Tool results details", {
+            "results": tool_results
+        })
 
         # Build messages with tool results
         # Create a copy of request messages to avoid modifying the original

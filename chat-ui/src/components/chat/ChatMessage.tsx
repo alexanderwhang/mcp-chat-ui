@@ -3,6 +3,22 @@ import { Box, Paper, Typography } from '@mui/material';
 import type { Message as MessageType } from '../../api/types';
 import ToolCallBlockComponent from './ToolCallBlock';
 
+// Logger utility for consistent logging
+const logger = {
+  log: (message: string, ...data: any[]) => {
+    console.log(`[LOG] [ChatMessage] ${message}`, ...data);
+  },
+  info: (message: string, ...data: any[]) => {
+    console.info(`[INFO] [ChatMessage] ${message}`, ...data);
+  },
+  warn: (message: string, ...data: any[]) => {
+    console.warn(`[WARN] [ChatMessage] ${message}`, ...data);
+  },
+  error: (message: string, ...data: any[]) => {
+    console.error(`[ERROR] [ChatMessage] ${message}`, ...data);
+  }
+};
+
 /**
  * Props for ChatMessage component
  */
@@ -18,9 +34,11 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
   const isAssistant = message.role === 'assistant';
   const isTool = message.role === 'tool';
   
-  console.log('ChatMessage rendering:', { 
+  logger.log('CHAT MESSAGE - Rendering message component', { 
     id: message.id, 
     role: message.role, 
+    hasContent: !!message.content,
+    contentLength: message.content?.length,
     toolCalls: message.toolCalls?.map(tc => ({ id: tc.id, name: tc.function.name })), 
     toolResults: message.toolResults?.map(tr => ({ toolId: tr.toolId, name: tr.name, status: tr.status }))
   });

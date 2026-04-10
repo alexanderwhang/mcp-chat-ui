@@ -2,6 +2,22 @@ import React, { useState, useRef } from 'react';
 import type { KeyboardEvent } from 'react';
 import { Box, TextField, Button, Paper } from '@mui/material';
 
+// Logger utility for consistent logging
+const logger = {
+  log: (message: string, ...data: any[]) => {
+    console.log(`[LOG] [ChatInput] ${message}`, ...data);
+  },
+  info: (message: string, ...data: any[]) => {
+    console.info(`[INFO] [ChatInput] ${message}`, ...data);
+  },
+  warn: (message: string, ...data: any[]) => {
+    console.warn(`[WARN] [ChatInput] ${message}`, ...data);
+  },
+  error: (message: string, ...data: any[]) => {
+    console.error(`[ERROR] [ChatInput] ${message}`, ...data);
+  }
+};
+
 export interface ChatInputProps {
   onSendMessage: (message: string) => void;
   disabled?: boolean;
@@ -18,6 +34,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   const handleSend = () => {
     if (text.trim() && !disabled) {
+      logger.log('INPUT - User sending message', { 
+        messageLength: text.length,
+        messagePreview: text.substring(0, 50) + (text.length > 50 ? '...' : '')
+      });
       onSendMessage(text.trim());
       setText('');
 

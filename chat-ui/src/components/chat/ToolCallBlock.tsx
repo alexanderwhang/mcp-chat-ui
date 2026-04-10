@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -11,6 +11,22 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
+
+// Logger utility for consistent logging
+const logger = {
+  log: (message: string, ...data: any[]) => {
+    console.log(`[LOG] [ToolCallBlock] ${message}`, ...data);
+  },
+  info: (message: string, ...data: any[]) => {
+    console.info(`[INFO] [ToolCallBlock] ${message}`, ...data);
+  },
+  warn: (message: string, ...data: any[]) => {
+    console.warn(`[WARN] [ToolCallBlock] ${message}`, ...data);
+  },
+  error: (message: string, ...data: any[]) => {
+    console.error(`[ERROR] [ToolCallBlock] ${message}`, ...data);
+  }
+};
 
 /**
  * Props for ToolCallBlock component
@@ -33,10 +49,33 @@ export const ToolCallBlock: React.FC<ToolCallBlockProps> = ({
 }) => {
   const [expanded, setExpanded] = useState(false);
 
+  // Log when component mounts
+  useEffect(() => {
+    logger.log('TOOL CALL BLOCK - Component mounted', {
+      name,
+      status,
+      inputPreview: typeof input === 'string' ? (input as string).substring(0, 50) + '...' : JSON.stringify(input),
+      outputPreview: output ? (output as string).substring(0, 50) + '...' : 'undefined'
+    });
+  }, []);
+
+  // Log when status changes
+  useEffect(() => {
+    logger.log('TOOL CALL BLOCK - Status updated', {
+      name,
+      status,
+      outputPreview: output ? (output as string).substring(0, 50) + '...' : 'undefined'
+    });
+  }, [status, output]);
+
   const handleAccordionChange = (
     _event: React.SyntheticEvent,
     isExpanded: boolean
   ) => {
+    logger.log('TOOL CALL BLOCK - Accordion state changed', {
+      name,
+      expanded: isExpanded
+    });
     setExpanded(isExpanded);
   };
 
